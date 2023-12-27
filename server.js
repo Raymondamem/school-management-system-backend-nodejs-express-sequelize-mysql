@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const dotenv = require('dotenv')
+dotenv.config()
 
 const app = express();
 
@@ -30,12 +32,22 @@ db.sequelize.sync()
 //   console.log("Drop and re-sync db.");
 // });
 
+// Custom error call
+app.use((error, req, res, next) => {
+  res.status(error.statusCode || 500).json({ message: error.message });
+});
+
 // simple route
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to bezkoder application." });
+  res.json({ message: "Welcome to students MS application." });
 });
 
 require("./app/routes/turorial.routes")(app);
+
+// 404 route
+app.use("*", (req, res) => {
+  res.status(404).json({ message: "404 page not found! Go-Home" });
+});
 
 // set port, listen for requests
 const PORT = process.env.PORT || 8080;
