@@ -1,49 +1,131 @@
+let errorArr = [];
+const passport = require("passport");
+const LocalStrategy = require("passport-local").Strategy;
 const db = require("../models");
-const getHashedPassword = require('../custom/passwordHasher');
+const { getHashedPassword, comparePasswords } = require('../custom/passwordHasher');
 const StudentTable = db.Student;
 const Op = db.Sequelize.Op;
 // Create and Save a new StudentTable
 exports.create = (req, res) => {
-  // Validate request
-  if (!req.body.email) {
-    res.status(400).send({
-      message: "Email can not be empty!"
-    });
-    return;
+  const { fullName, email, password } = req.body;
+
+  if (email) {//email exist
+    StudentTable.findOne({ where: { email: email } })
+      .then(found => {
+        if (found != null) {
+          res.status(400).json({ emailError: `Student Email exist!` })
+          return;
+        } else {
+          // will be checking password length, chars using joi
+          const hashedPassword = getHashedPassword(password);
+          // Create a StudentTable
+          const studentObj = {
+            fullName,
+            email,
+            password: hashedPassword,
+          };
+          // Save StudentTable in the database
+          StudentTable.create(studentObj)
+            .then(data => {
+              res.json({ success: `Student created successfully!`, student: data });
+            })
+            .catch(err => {
+              res.status(500).json({
+                message:
+                  err.message || "Some error occurred while creating the Student profile."
+              });
+            });
+        }
+      })
+      .catch(err => {
+        res.status(500).json(`${err} occured while checking if ${email} exist!`)
+      })
   }
+};
 
-  if (req.body.password !== req.body.confirmPassword) {
-    res.status(400).send({
-      message: "Passwords does not match!"
-    });
-    return;
-  }
+// SignIn controller
+// for the authentication... so one can be registered to make request and
+// receive responces from server (called seassioning and cashing)
+// will creat a better way to trow error maybe using "connectflash" and 
+// will creat a middleware func() to alway check if someone is authenticated
+// for a request or responce.
+// res.json({ email, password })
+// passport strategies sets
+passport.serializeUser((user, done) => {
+  done(null, user.uuid);
+});
 
-  const hashedPassword = getHashedPassword(req.body.password);
-
-  // Create a StudentTable
-  const studentObj = {
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    email: req.body.email,
-    password: hashedPassword,
-    classAt: req.body.classAt,
-    schoolFee: req.body.schoolFee,
-    // confirmPassword: req.body.confirmPassword
-  };
-
-  // Save StudentTable in the database
-  StudentTable.create(studentObj)
-    .then(data => {
-      res.send(data);
+passport.deserializeUser((uuid, done) => {
+  StudentTable.findOne({ where: { uuid: uuid } })
+    .then(user => {
+      if (!user) {
+        return done(null, false, { message: "Couldn't find user!" });
+      }
+      done(null, user);
     })
     .catch(err => {
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while creating the StudentTable."
+      done(err, false, { message: err });
+    });
+});
+
+passport.use(new LocalStrategy({
+  usernameField: 'email',
+  passwordField: 'password',
+  passReqToCallback: true
+}, (req, email, password, done) => {
+  StudentTable.findOne({ where: { email: email } })
+    .then(user => {
+      if (!user)
+        return done(null, false, { error: 'Oops! Invalid user.' });
+      if (!comparePasswords(password, user.password))
+        return done(null, false, { error: 'Oops! Incorrect password.' });
+      else
+        return done(null, user);
+    })
+    .catch(err => {
+      done(err);
+    });
+}));
+
+exports.signIn = (req, res, next) => {
+  passport.authenticate("local", (err, user, info) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!user) {
+      return res.status(401).json({ error: info.error });
+    }
+
+    // Log in the user
+    req.logIn(user, (err) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      // Send a success response with user information
+      return res.status(200).json({
+        success: true,
+        user: {
+          email: user.email,
+          // Add any other user information you want to send to the client
+        },
       });
     });
+  })(req, res, next);
 };
+// confirm user authentication
+exports.isAutenticated = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    next();
+  } else {
+    res.status(401).send('User not signed-In, SignIn please!')
+  }
+}
+// logout
+exports.logOut = (req, res) => {
+  req.logout();
+  res.status(200).json({ success: true, message: 'Logout successful' });
+}
 
 // Retrieve all StudentTables from the database.
 exports.findAll = (req, res) => {
@@ -152,7 +234,7 @@ exports.deleteAll = (req, res) => {
 
 // find all published StudentTable
 exports.findAllPublished = (req, res) => {
-  StudentTable.findAll({ where: { published: true } })
+  StudentTable.findAll({ where: { isGradguated: true } })
     .then(data => {
       res.send(data);
     })
@@ -163,3 +245,4 @@ exports.findAllPublished = (req, res) => {
       });
     });
 };
+

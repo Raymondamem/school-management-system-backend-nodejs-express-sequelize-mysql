@@ -1,24 +1,38 @@
 const express = require("express");
 const cors = require("cors");
-const dotenv = require('dotenv')
-dotenv.config()
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+const passport = require('passport');
+const db = require("./app/models");
+require('dotenv').config();
 
 const app = express();
+//use cookie parser
+app.use(cookieParser('secret'));
+//config session
+app.use(session({
+  secret: 'secret',
+  resave: true,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 // 86400000 1 day
+  }
+}));
 
-var corsOptions = {
-  origin: "http://localhost:8081"
-};
-
-app.use(cors(corsOptions));
+// cross origin with local host 4000
+app.use(
+  cors({
+    origin: [process.env.CORS_URL],
+    credentials: true,
+    optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
+  })
+);
 
 // parse requests of content-type - application/json
 app.use(express.json());
-
 // parse requests of content-type - application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
-
-const db = require("./app/models");
-
+//Config passport middleware
 db.sequelize.sync()
   .then(() => {
     console.log("Synced db.");
@@ -26,6 +40,9 @@ db.sequelize.sync()
   .catch((err) => {
     console.log("Failed to sync db: " + err.message);
   });
+// passport authentication sets
+app.use(passport.initialize());
+app.use(passport.session());
 
 // // drop the table if it already exists
 // db.sequelize.sync({ force: true }).then(() => {
