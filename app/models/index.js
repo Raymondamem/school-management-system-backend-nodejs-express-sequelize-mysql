@@ -43,6 +43,4 @@ db.Student = require("./studentdb.model.js")(sequelize, Sequelize);
 // db.Result = require("./studentdb.model.js")(sequelize, Sequelize);
 // db.Fee = require("./studentdb.model.js")(sequelize, Sequelize);
 // db.Receipt = require("./studentdb.model.js")(sequelize, Sequelize);
-
-
 module.exports = db;

@@ -8,8 +8,8 @@ const Op = db.Sequelize.Op;
 // Create and Save a new StudentTable
 exports.create = (req, res) => {
   const { fullName, email, password } = req.body;
-
-  if (email) {//email exist
+  // validation of field will be done at client side
+  if (fullName && email && password) {//email exist
     StudentTable.findOne({ where: { email: email } })
       .then(found => {
         if (found != null) {
@@ -40,6 +40,8 @@ exports.create = (req, res) => {
       .catch(err => {
         res.status(500).json(`${err} occured while checking if ${email} exist!`)
       })
+  } else {
+    res.status(400).json({ message: "Empty Credentials!" })
   }
 };
 
@@ -95,18 +97,17 @@ exports.signIn = (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: info.error });
     }
-
     // Log in the user
     req.logIn(user, (err) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
-
       // Send a success response with user information
       return res.status(200).json({
         success: true,
         user: {
           email: user.email,
+          fullName: user.fullName
           // Add any other user information you want to send to the client
         },
       });

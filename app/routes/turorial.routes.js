@@ -5,7 +5,7 @@ module.exports = app => {
   var router = require("express").Router();
 
   // Create a new Tutorial
-  router.post("/", studentcontroller.create);//worked
+  router.post("/signup", studentcontroller.create);//worked
 
   // SignIn 
   router.post("/signin", studentcontroller.signIn);//worked
